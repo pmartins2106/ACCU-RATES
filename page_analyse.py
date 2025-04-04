@@ -61,29 +61,29 @@ def page_analyse():
     
     def load_odf():
         """ Get the loaded .odf into Pandas dataframe. """
-        # try:
-        df_load = pd.read_excel(input, skiprows=3, engine="odf", 
-                                header = None) #nrows= 1000, usecols = range(0,18), 
-        Ncurves0 = int(df_load.shape[0]/2)
-        S0_load = df_load.iloc[0][0:min(Ncurves0,10)]
-        S0_load.dropna(how='all', axis=0, inplace=True)
-        S0 = list(S0_load)
-        df_load = df_load.iloc[4:]
-        # Remove empty columns
-        df_load.dropna(how='all', axis=1, inplace=True)
-        # number of curves
-        Ncurves = S0_load.shape[0]
-        # Curve1, Curve2...
-        colist = ['Curve '+ str(i) for i in range(1, Ncurves+2)]
-        # df_load.columns =  np.concatenate((['Time'], colist), axis=0)
-        flag_return = 0
-        # except:
-        #     st.error('Error - check if the uploaded file is in the right format')
-        #     df_load = 0
-        #     Ncurves  = 0
-        #     colist = 0
-        #     flag_return = 1
-        #     st.stop()
+        try:
+            df_load = pd.read_excel(input, skiprows=3, engine="odf", 
+                                    header = None) #nrows= 1000, usecols = range(0,18), 
+            Ncurves0 = int(df_load.shape[0]/2)
+            S0_load = df_load.iloc[0][0:min(Ncurves0,10)]
+            S0_load.dropna(how='all', axis=0, inplace=True)
+            S0 = list(S0_load)
+            df_load = df_load.iloc[4:]
+            # Remove empty columns
+            df_load.dropna(how='all', axis=1, inplace=True)
+            # number of curves
+            Ncurves = S0_load.shape[0]
+            # Curve1, Curve2...
+            colist = ['Curve '+ str(i) for i in range(1, Ncurves+2)]
+            # df_load.columns =  np.concatenate((['Time'], colist), axis=0)
+            flag_return = 0
+        except:
+            st.error('Error - check if the uploaded file is in the right format')
+            df_load = 0
+            Ncurves  = 0
+            colist = 0
+            flag_return = 1
+            st.stop()
             
         return df_load, S0, Ncurves, colist, flag_return
     
