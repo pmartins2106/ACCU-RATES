@@ -63,7 +63,7 @@ def page_analyse():
         """ Get the loaded .odf into Pandas dataframe. """
         # try:
         df_load = pd.read_excel(input, skiprows=3, engine="odf", 
-                                nrows= 1000, header = None) #usecols = range(0,18), 
+                                header = None) #nrows= 1000, usecols = range(0,18), 
         Ncurves0 = int(df_load.shape[0]/2)
         S0_load = df_load.iloc[0][0:min(Ncurves0,10)]
         S0_load.dropna(how='all', axis=0, inplace=True)
