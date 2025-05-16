@@ -64,7 +64,7 @@ def page_analyse():
         try:
             df_load = pd.read_excel(input, skiprows=3, engine="odf", 
                                     header = None) #nrows= 1000, usecols = range(0,18), 
-            st.write(df_load.shape)
+            st.write(df_load)
             Ncurves0 = int(df_load.shape[0]/2)
             S0_load = df_load.iloc[0][0:min(Ncurves0,10)]
             S0_load.dropna(how='all', axis=0, inplace=True)
