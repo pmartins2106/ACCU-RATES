@@ -10,11 +10,10 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
-# import io
-# from scipy.optimize import curve_fit
-from scipy import stats
-# from scipy.stats import t as tt
-# from scipy.special import lambertw
+from scipy.integrate import odeint
+from scipy.optimize import curve_fit
+from scipy.stats import pearsonr
+
 
 
 def page_analyse():
@@ -62,37 +61,34 @@ def page_analyse():
     def load_odf():
         """ Get the loaded .odf into Pandas dataframe. """
         try:
-            df_load = pd.read_excel(input, skiprows=3, engine="odf", 
-                                    header = None) #nrows= 1000, usecols = range(0,18), 
-            Ncurves0 = int(df_load.shape[0]/2)
-            S0_load = df_load.iloc[0][0:min(Ncurves0,10)]
+            df_load = pd.read_excel(input, skiprows=0,  engine="odf", header = None)
+            template = df_load.iloc[0,1]
+            S0_load = df_load.iloc[4,:]
             S0_load.dropna(how='all', axis=0, inplace=True)
             S0 = list(S0_load)
-            df_load = df_load.iloc[4:]
+            df_load = df_load.iloc[8:]
             # Remove empty columns
             df_load.dropna(how='all', axis=1, inplace=True)
             # number of curves
             Ncurves = S0_load.shape[0]
             # Curve1, Curve2...
             colist = ['Curve '+ str(i) for i in range(1, Ncurves+2)]
-            # df_load.columns =  np.concatenate((['Time'], colist), axis=0)
             flag_return = 0
         except:
-            st.error('Error - check if the uploaded file is in the right format')
             df_load = 0
             Ncurves  = 0
             colist = 0
             flag_return = 1
             st.stop()
             
-        return df_load, S0, Ncurves, colist, flag_return
+        return df_load, S0, Ncurves, colist, flag_return, template
     
     
     input = st.file_uploader('')
  
     # The run_example variable is session state and is set to False by default
     # Therefore, loading an example is possible anytime after running an example.  
-    st.write('Upload your data') 
+    st.write('Upload data') 
     st.write('---------- OR ----------')
     st.session_state.run_example = False
     st.session_state.run_example = st.checkbox('Run a prefilled example') 
@@ -104,11 +100,20 @@ def page_analyse():
       
     try:
         if download_sample:
-            with open("datasets//ACCU-RATES_template.ods", "rb") as fp:
+            template_mode = st.radio("Choose Template", ('Multiple Time Columns', 
+                                                         'Single Time Column'))
+            if template_mode == 'Single Time Column':
+                template_address = "datasets//ACCU-RATES_template2.ods"
+                slcted_template = "ACCU-RATES_template2.ods"
+            else:
+                template_address = "datasets//ACCU-RATES_template1.ods"
+                slcted_template = "ACCU-RATES_template1.ods"
+                
+            with open(template_address, "rb") as fp:
                 st.download_button(
                 label="Download",
                 data=fp,
-                file_name="ACCU-RATES_template.ods",
+                file_name=slcted_template,
                 mime="application/vnd.ms-excel"
                 )
             st.markdown("""**fill the template; save the file (keeping the .ods format); 
@@ -116,23 +121,14 @@ def page_analyse():
            
             # if run option is selected
         if st.session_state.run_example:
-            input = "datasets/ACCU-RATES_example.ods"
-            df, S0, Ncurves, colist, flag_return = load_odf()
+            input = "datasets/ACCU-RATES_template2.ods"
+            df, S0, Ncurves, colist, flag_return, template = load_odf()
     except:
         # If the user imports file - parse it
        if input:
            with st.spinner('Loading data...'):
-                df, S0, Ncurves, colist, flag_return = load_odf()
+                df, S0, Ncurves, colist, flag_return, template = load_odf()
     
-    
-    # Error Handling
-    def analysisterminated(err):
-        if err == 0:
-            st.error("ACCU-RATES method not applied. Check if the input file contains at" + 
-                     " least 5 different progress curves.")
-        elif err == 1:
-            st.error("ACCU-RATES method not applied. Check if the input file and calibration curves are OK")
-        st.stop()
     
     def extract_curves(dfi):
         # remove empty cells
@@ -143,10 +139,10 @@ def page_analyse():
     
     #plot experimental and fitted data
     def plot_fit(p_x, p_xfit, p_y, p_yfit, i):
-        if plot_mode == 'Dark Mode':
-            plt.style.use("dark_background")
-        else:
-            plt.style.use("default")
+        # if plot_mode == 'Dark Mode':
+        #     plt.style.use("dark_background")
+        # else:
+        #     plt.style.use("default")
         if i < 10:
             plt.scatter(p_x, p_y, color=colors[i], label=S0[i]) #
         elif i == 11:
@@ -155,19 +151,10 @@ def page_analyse():
             plt.scatter(p_x, p_y, color=colors[i])
                 
         plt.plot(p_xfit, p_yfit, color='g', linewidth=1)
-        
-        
-    # def integratedMM(x, param0, param1, param2):
-    #     K = param0
-    #     V = param1
-    #     S = param2
-    #     y = S - K*(lambertw(S/K*np.exp((S-V*x))/K))
-    #     return y
-    
-                
+               
     
     # DATA ANALYSIS AND REPORTING
-        
+    
     if input and flag_return == 0:
         # define color in plots
         colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
@@ -177,90 +164,144 @@ def page_analyse():
         if plot_mode == 'Dark Mode':
             backc = 'black'
         else:
-            backc = 'white'
-            
-        # Check if at least 5 different S0 values are present 
-        if len(S0) < 5:
-            err = 0
-            analysisterminated(err)
-        
-        # If S vs t curves are used, conversion to P vs t is needed
+            backc = 'white'   
+    
+        # If S vs t curves are used, conversion to P vs t is needed        
+        mint = []
+        maxt = []
+        minP = []
+        maxP = []
         SvstFlag = 0
         for n in range(Ncurves):
-            dfi = df.iloc[:, [2*n,2*n+1]].astype(float)
+            if template == 1:
+                dfi = df.iloc[:, [2*n,2*n+1]].astype(float)
+            else:
+                dfi = df.iloc[:, [0,n+1]].astype(float) 
             t, P = extract_curves(dfi)
+            P = P*slope + intercept
+            mint.extend([min(t)])
+            maxt.extend([max(t)])
+            minP.extend([min(P)])
+            maxP.extend([max(P)])
             if list(P)[-1] < list(P)[0]:
-                SvstFlag = SvstFlag + 1      
+                SvstFlag = SvstFlag + 1
         
         if SvstFlag == Ncurves:
             st.warning('Substrate depletion curves were detected. Conversion to' + 
                                 ' Product production curves was performed using the approximation $P = S_0-S$.')
-        
+       
         # Defining number of final sampled points
         nosample = 7
-        
+    
         pointnumber = []
         for n in range(Ncurves):
-            dfi = df.iloc[:, [2*n,2*n+1]].astype(float)
+            if template == 1:
+                dfi = df.iloc[:, [2*n,2*n+1]].astype(float)
+            else:
+                dfi = df.iloc[:, [0,n+1]].astype(float) 
             xdata, ydata = extract_curves(dfi)
             pointnumber.extend([len(xdata)]);
-            
-        # # Fit full progress curve
-        # fig_fit = plt.figure(facecolor=backc)
         
-        # Km_int = []
-        # Vmax_int = []
-        # S0_int = []
+        # Fit full progress curve
+        def dS_dt(S, t, V, K):
+            return - V * S / (K + S)
+    
+        def substrate_ode(t, V, K):
+            P = Si - odeint(dS_dt, Si, t, args=(V, K))
+            return P.flatten()
         
-        # for n in range(Ncurves):
-        #     try:
-        #         dfi = df.iloc[:, [2*n, 2*n+1]].astype(float)
-        #         t, P = extract_curves(dfi)
-        #         if SvstFlag == Ncurves:
-        #             P = S0[n] - P
-        #         ig = np.asarray([max(S0)/5, max(S0)/max(t), S0[n]])
-        #         bds =  ([0, 0, 0], [np.inf, np.inf, np.inf])
-        #         parameters, covariance = curve_fit(integratedMM, t, P, p0=ig,
-        #                                         bounds=bds, maxfev=10000) #xtol=1e-20*tmax, ftol=1e-20*ymax, 
+        fig1 = plt.figure(facecolor=backc)
+        # fig2 = plt.figure(facecolor=backc)
+        Km_int = []
+        Vmax_int = []
+        S0_int = []
+        for n in range(Ncurves):
+            try:
+                if template == 1:
+                    dfi = df.iloc[:, [2*n,2*n+1]].astype(float)
+                else:
+                    dfi = df.iloc[:, [0,n+1]].astype(float) 
+                t, P = extract_curves(dfi)
+                P = P*slope + intercept
+                if SvstFlag == Ncurves:
+                    P = S0[n] - P
+                dt = t-list(t)[0]
+                dP = P -list(P)[0]
+                ig = np.asarray([max(S0)/10000, max(np.diff(dP)/np.diff(dt))])
+                bds =  ([0, ig[1]], [np.inf, np.inf])
+                Si = S0[n] - list(P)[0]
+                parameters, covariance = curve_fit(substrate_ode, dt, dP, 
+                                  p0=ig, bounds=bds, maxfev=10000) #xtol=1e-20*tmax, ftol=1e-20*ymax, 
                 
-        #         Km_int.extend([parameters[0]])
-        #         Vmax_int.extend([parameters[1]])
-        #         S0_int.extend([parameters[2]])
-        #         p_xfit = np.linspace(0, max(t))
-        #         p_yfit = integratedMM(p_xfit, parameters[0], parameters[1], parameters[2])
-        #         plot_fit(t, p_xfit, P, p_yfit, n) 
-        #     except:
-        #         S0_int.extend([S0[n]])
-        #         Km_int.extend([0])
-        #         Vmax_int.extend([0])
+                
+                Km_int.extend([parameters[1]])
+                Vmax_int.extend([parameters[0]])
+                S0_int.extend([Si])
+                p_xfit = np.linspace(0, max(dt))
+                p_yfit = substrate_ode(p_xfit, parameters[0], parameters[1])
+                if plot_mode == 'Dark Mode':
+                    plt.style.use("dark_background")
+                else:
+                    plt.style.use("default")
+                plt.subplot(1, 2, 1)
+                plot_fit(dt, p_xfit, dP, p_yfit, n)                         
+                plt.subplot(1, 2, 2)
+                plot_fit(dt, p_xfit, dP/Si, p_yfit/Si, n)                         
+            except:
+                st.error("Error: ACCU-RATES method not applied.")
+                st.stop()
+       
+        plt.subplot(1, 2, 1)
+        plt.legend(title="S0")
+        plt.title("Progress Curves")
+        plt.xlabel('Time')
+        plt.ylabel('Product Concentration')
+        plt.subplot(1, 2, 2)
+        plt.legend(title="S0")
+        plt.title("Normalized Units")
+        plt.xlabel('Time')
+        
+        st.pyplot(fig1)  
         
         # Flag is 1 is at least one vector is found to have less than 3 points.    
         pointnumber_flag = all(i < 3 for i in pointnumber)
+    
         if not(pointnumber_flag):
             
             percentile95 = []
             index95 = []
             intfilt_all = []
             for n in range(Ncurves):
-                dfi = df.iloc[:, [2*n,2*n+1]].astype(float)
-                t, P1 = extract_curves(dfi)
-                P = P1*slope + intercept
+                if template == 1:
+                    dfi = df.iloc[:, [2*n,2*n+1]].astype(float)
+                else:
+                    dfi = df.iloc[:, [0,n+1]].astype(float) 
+                t, P = extract_curves(dfi)
+                P = P*slope + intercept
                 if SvstFlag == Ncurves:
                     P = S0[n] - P
+                t = t-list(t)[0]
+                P = P -list(P)[0]
                 percentile95.extend([np.percentile(P, 95)])
                 index95.extend([(np.abs(P - percentile95[n])).argmin()])
                 intfilt_all.extend([round(index95[n]/nosample)]);
+            
             # Definition of largest interval for strong filter application
             intfilthalf = round(max(intfilt_all)/2) if round(max(intfilt_all)/2) >0 else 1 ;
             
             Pfiltered = []
             tfiltered = []
             for n in range(Ncurves):
-                dfi = df.iloc[:, [2*n,2*n+1]].astype(float)
-                t, P1 = extract_curves(dfi)
-                P = P1*slope + intercept
+                if template == 1:
+                    dfi = df.iloc[:, [2*n,2*n+1]].astype(float)
+                else:
+                    dfi = df.iloc[:, [0,n+1]].astype(float) 
+                t, P = extract_curves(dfi)
+                P = P*slope + intercept
                 if SvstFlag == Ncurves:
                     P = S0[n] - P
+                t = t-list(t)[0]
+                P = P -list(P)[0]
                 filtereddata = []
                 filteredtime = []
                 for q in range(intfilthalf, (pointnumber[n]-intfilthalf+2)):
@@ -269,7 +310,6 @@ def page_analyse():
                 Pfiltered.append(np.transpose(filtereddata))
                 tfiltered.append(np.transpose(filteredtime))
             
-           
             # Sampling x Points, Product-wise
             Psampled = []
             tsampled = []
@@ -299,8 +339,7 @@ def page_analyse():
                 tempt = tfiltered[n]
                 Psampled.append(np.transpose(tempP))
                 tsampled.append(np.transpose(tempt))
-            st.error('ACCU-RATES method not applied. Number of timepoints < 3.')
-            st.stop()
+            st.warning('\n Interferenzy analysis not performed. Number of timepoints < 3.\n')
 
         # Non-unique arrays
         if UniqueFlag == 1:
@@ -311,105 +350,81 @@ def page_analyse():
                 tempt = tfiltered[n]
                 Psampled.append(np.transpose(tempP))
                 tsampled.append(np.transpose(tempt))
-        
-        # (2) Individual Curve Analysis------------------------------------------------
-        
-        
-        #     # Unlike Interferenzy, Pinf always correspond to S0 (for simplicity)
-                # Choosing whether to use Pinf or not.
-        # eval = []
-        FinalP = []
-        for n in range(Ncurves):
-        #     eval.extend([(Psampled[n][-1] > 0.9*S0[n]) & (Psampled[n][-1] < 1.1*S0[n])])
-        # for n in range(Ncurves):
-        #     if all(eval): # & SvstFlag != Ncurves
-        #         FinalP.extend([S0_int[n]]) #max(Psampled[n])
-        #     else: 
-        #         FinalP.extend([S0[n]])
-            FinalP.extend([S0[n]])
-        
-        # Determination of Y and X for ti = first points. 
-        # Unlike Interferenzy, a single initial timpoint (the second) is assumed 
 
-            # linearlization
-        X = []
-        Y = []
-        for n in range(Ncurves):
-            linearX = -np.log(1 - (Psampled[n][2] - Psampled[n][1]) / 
-                              (FinalP[n] - Psampled[n][1])) / (tsampled[n][2] - tsampled[n][1])
-            linearY = (Psampled[n][2] - Psampled[n][1]) / (tsampled[n][2] - tsampled[n][1])
-            X.extend([linearX])
-            Y.append(np.transpose(linearY))
-
+        # Fit MM curve
+        def MM(x, param0, param1):
+            K = param0
+            V = param1
+            y = x*V/(K+x)
+            return y
         
-        
-        res = stats.linregress(np.multiply(X,-1),Y)
-        # Two-sided inverse Students t-distribution
-        # p - probability, dfr - degrees of freedom
-        # tinv = lambda p, dfr: abs(tt.ppf(p/2, dfr))
-        # ts = tinv(0.05, len(X)-2)
-        Km = res.slope
-        Vmax = res.intercept
-        if np.isnan(Km):
-            analysisterminated(1)
-
-
-        v0 = []
-        for n in range(Ncurves):
-            v0.extend([S0[n]*Vmax / (S0[n] + Km)])
-        v0_df = pd.DataFrame({'S0': S0,
-                   'v0': v0})
-       
         st.success("""
                     ACCU-RATES plots and reports
                     """)
         
-        # Plot linearization fit
-        fig1 = plt.figure(facecolor=backc)
-        p_xfit = np.linspace(0, max(X), 200)
-        p_yfit = res.intercept - res.slope*p_xfit
-        plot_fit(X, p_xfit, Y, p_yfit, 0)
-        plt.xlabel('X')
-        plt.ylabel('Y')
-        plt.title("Linearization Plot")
-        st.pyplot(fig1)
-        
-        
-        # plot initial rates
-        fig2 = plt.figure(facecolor=backc)
-        Pmax = max([max(Psampled[i]) for i in range(Ncurves)])
-        p_tmax = Pmax/max(v0)
-        p_xfit = np.linspace(0, p_tmax, 200)
+        v0 = []
         for n in range(Ncurves):
-            dfi = df.iloc[:, [2*n,2*n+1]].astype(float)
-            t, P1 = extract_curves(dfi)
-            P = P1*slope + intercept
-            if SvstFlag == Ncurves:
-                P = S0[n] - P
-            p_yfit = v0[n]*(p_xfit - tsampled[n][1]) + Psampled[n][1]
-            plot_fit(t, p_xfit, P, p_yfit, n)
-        plt.legend(title="S0")
-        plt.title("Initial Rates")
-        plt.xlabel('Time')
-        plt.ylabel('Product Concentration')
+            v0.extend([S0[n]*Vmax_int[n] / (S0[n] + Km_int[n])])
+        v0_df = pd.DataFrame({'S0': S0,
+                   'v0': v0})
+            
+   
+        ig = np.asarray([max(S0)/5, max(v0)])
+        bds =  ([0, 0], [np.inf, np.inf])
+        parameters, covariance = curve_fit(MM, S0, v0, p0=ig,
+                                       bounds=bds, maxfev=10000)
+
+        Km = parameters[0]
+        Vmax = parameters[1]
+        sigma_ab = np.sqrt(np.diagonal(covariance))
+
+        fig2 = plt.figure(facecolor=backc)
+        if plot_mode == 'Dark Mode':
+            plt.style.use("dark_background")
+        else:
+            plt.style.use("default")
+        plt.scatter(S0, v0, facecolors='none', edgecolors='r', s = 70, label='ACCU-RATES')
+        p_xfit = np.linspace(0, max(S0))
+        plt.plot(p_xfit, Vmax*p_xfit / (Km + p_xfit), 'b', label='fitted line')
+        plt.xlabel('S0')
+        plt.ylabel('v0')
+        plt.legend(loc="upper left")
         st.pyplot(fig2)
         
-        fig3 = plt.figure(facecolor=backc)
-        p_xfit = np.linspace(0, max(S0))
-        p_yfit = Vmax*p_xfit / (Km + p_xfit)
-        plot_fit(S0, p_xfit, v0, p_yfit, 5)
-        plt.title("Michaelis-Menten Plot")
-        plt.xlabel('Substrate Concentration (S0)')
-        plt.ylabel('Initial Rates (v0)')
-        st.pyplot(fig3)      
-        
+        # Interferenzy Analysis------------------------------------------------
+        FinalP = S0_int
+        X = []
+        Y = []
+        for n in range(Ncurves):
+            arg_log = 1 - (Psampled[n][1] - Psampled[n][0])/(FinalP[n] - Psampled[n][0])
+            if arg_log > 0:
+                linearX = -np.log(arg_log) / (tsampled[n][1] - tsampled[n][0])
+                linearY = (Psampled[n][1] - Psampled[n][0]) / (tsampled[n][1] - tsampled[n][0])
+                X.extend([linearX])
+                Y.append(np.transpose(linearY))
+            else:
+                st.warning('\n\nError during Interferenzy linearization in at least 1 curve.')
+
+        Y2 = []
+        for n in range(Ncurves):
+            Y2.append(Vmax_int[n] - Km_int[n]*X[n])
+   
+    
         # Reporting
+        st.info('Simplified Interferenzy Analysis')
+        try:
+            # Pearson correlation
+            corr, p_value = pearsonr(Y, Y2)
+            st.write(f"\n\nPearson correlation: {corr:.3f}, p-value: {p_value:.3e}")
+        except:
+            st.write('\n\nInterferenzy validation not possible.')    
+        
         st.info('Kinetic Parameters:')
-        st.write('\nKm (95%): ' + repr(round(res.slope,6)) + 
-                          ' +/- ' + repr(round(res.stderr,6)))
-        st.write('\nVmax (95%): ' + repr(round(res.intercept,6)) + 
-                          ' +/- ' + repr(round(res.intercept_stderr,6)))
+        st.write('\nKm +/- Std Dev = ' + repr(round(Km,6)) + 
+                        ' +/- ' + repr(round(sigma_ab[0],6)))
+        st.write('\nVmax +/- Std Dev = ' + repr(round(Vmax,6)) + 
+                        ' +/- ' + repr(round(sigma_ab[1],6)))
         st.info('\n\nInitial Rates:\n')
-        st.write(v0_df)
-      
-# page_analyse()
+        st.dataframe(v0_df, hide_index=True)
+        
+        
