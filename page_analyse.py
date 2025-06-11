@@ -417,13 +417,95 @@ def page_analyse():
             corr, p_value = pearsonr(Y, Y2)
             st.write(f"\n\nPearson correlation: {corr:.3f}, p-value: {p_value:.3e}")
         except:
-            st.write('\n\nInterferenzy validation not possible.')    
+            st.write('\n\nInterferenzy validation not possible.') 
+            
+        def count_sig_figs(value):
+            """
+            Count significant figures in a number.
+            
+            Args:
+                value (float): Number to analyze
+            
+            Returns:
+                int: Number of significant figures
+            """
+            if value == 0 or np.isinf(value):
+                return 1
+            str_value = f"{abs(value):.10e}".split("e")[0].replace(".", "").rstrip("0")
+            return len(str_value)
+
+        def round_to_sig_figs(value, sig_figs):
+            """
+            Round a number to specified significant figures.
+            
+            Args:
+                value (float): Number to round
+                sig_figs (int): Number of significant figures
+            
+            Returns:
+                float: Rounded number
+            """
+            if value == 0 or np.isinf(value):
+                return 0
+            magnitude = np.floor(np.log10(abs(value)))
+            factor = 10 ** (sig_figs - 1 - magnitude)
+            return round(value * factor) / factor
+
+        def format_mean_sd(mean, sd):
+            """
+            Format mean with precision set by SD's effective significant figures.
+            Rounds SD to practical magnitude (e.g., 10.00001 -> 10).
+            
+            Args:
+                mean (float): Mean value
+                sd (float): Standard deviation
+            
+            Returns:
+                str: Formatted string as 'mean ± sd' with consistent precision
+            """
+            # Handle infinite SD
+            if np.isinf(sd):
+               # Use default precision (e.g., 2 sig figs) for mean
+               default_sig_figs = 2
+               mean_rounded = round_to_sig_figs(mean, default_sig_figs)
+               if abs(mean_rounded) < 1e-4 or abs(mean_rounded) > 1e4:
+                   return f"{mean_rounded:.1e} ± inf"
+               mean_str = f"{abs(mean_rounded):.2f}".rstrip("0").rstrip(".")
+               decimal_places = len(mean_str.split(".")[1]) if "." in mean_str else 0
+               return f"{mean_rounded:.{decimal_places}f} ± inf"
+            
+            # Round SD to practical magnitude (e.g., 10.00001 -> 10)
+            sd_magnitude = round(abs(sd))
+            if sd_magnitude == 0:
+                sd_rounded = sd
+                sig_figs =  min(count_sig_figs(sd) + 1, 2)
+            else:
+                # Use 2 sig figs for SDs like 10.00001, ignoring minor decimals
+                sig_figs =  min(count_sig_figs(sd) + 1, 2)
+                sd_rounded = round_to_sig_figs(sd, sig_figs)
+            
+            # Round mean to match SD's precision
+            if sd_magnitude >= 1:
+                # For SDs like 10, round mean to same decimal places as rounded SD
+                decimal_places = max(1, -int(np.log10(abs(sd_rounded))))
+                mean_rounded = round(mean, decimal_places)
+            else:
+                # For small SDs, use sig figs
+                mean_rounded = round_to_sig_figs(mean, sig_figs)
+            
+            # Choose format based on magnitude
+            if abs(mean_rounded) < 1e-4 or abs(mean_rounded) > 1e4 or abs(sd_rounded) < 1e-4 or abs(sd_rounded) > 1e4:
+                format_string = f"{{:.{sig_figs-1}e}} ± {{:.{sig_figs-1}e}}"
+            else:
+                mean_str = f"{abs(mean_rounded):.{sig_figs}f}".rstrip("0").rstrip(".")
+                decimal_places = len(mean_str.split(".")[1]) if "." in mean_str else 0
+                format_string = f"{{:.{decimal_places}f}} ± {{:.{decimal_places}f}}"
+            
+            return format_string.format(mean_rounded, sd_rounded)    
         
-        st.info('Kinetic Parameters:')
-        st.write('\nKm +/- Std Dev = ' + repr(round(Km,6)) + 
-                        ' +/- ' + repr(round(sigma_ab[0],6)))
-        st.write('\nVmax +/- Std Dev = ' + repr(round(Vmax,6)) + 
-                        ' +/- ' + repr(round(sigma_ab[1],6)))
+        st.info('Michaelis-Menten Parameters:')
+        st.write(f"\nKm ± SD: {format_mean_sd(Km, sigma_ab[0])}")
+        st.write(f"\nV ± SD: {format_mean_sd(Vmax, sigma_ab[1])}")
         st.info('\n\nInitial Rates:\n')
         st.dataframe(v0_df, hide_index=True)
         
