@@ -12,7 +12,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.integrate import odeint
 from scipy.optimize import curve_fit
-from scipy.stats import pearsonr
 
 
 
@@ -153,7 +152,6 @@ def page_analyse():
                
     
     # DATA ANALYSIS AND REPORTING
-    
     if input and flag_return == 0:
         # define color in plots
         colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
@@ -188,10 +186,6 @@ def page_analyse():
         if SvstFlag == Ncurves:
             st.warning('Substrate depletion curves were detected. Conversion to' + 
                                 ' Product production curves was performed using the approximation $P = S_0-S$.')
-       
-        # Defining number of final sampled points
-        nosample = 7
-    
         pointnumber = []
         for n in range(Ncurves):
             if template == 1:
@@ -236,7 +230,7 @@ def page_analyse():
                 parameters, covariance = curve_fit(substrate_ode2, dt, dP, 
                                   p0=ig, bounds=bds, maxfev=10000) #xtol=1e-20*tmax, ftol=1e-20*ymax, 
                 Si = parameters[2]
-                
+                S0_int.extend([Si])
                 
                 if analysis_mode != 'raw data - unknown background/calibration curve':    
                     ig = np.asarray([max(S0)/10000, max(np.diff(dP)/np.diff(dt))])
@@ -244,9 +238,7 @@ def page_analyse():
                     
                     if Si > 0.9 * (S0[n] - list(P)[0]): # no enzyme inactivation
                         Si = S0[n] - list(P)[0]
-                        S0_int.extend([S0[n]])
-                    else:
-                        S0_int.extend([Si])
+                        S0_int[n] = S0[n]
                         
                     parameters, covariance = curve_fit(substrate_ode, dt, dP, 
                                       p0=ig, bounds=bds, maxfev=10000) #xtol=1e-20*tmax, ftol=1e-20*ymax, 
@@ -279,16 +271,7 @@ def page_analyse():
         plt.xlabel('Time')
         
         st.pyplot(fig1)  
-        
-        # Flag is 1 is at least one vector is found to have less than 3 points.    
-        pointnumber_flag = all(i < 3 for i in pointnumber)
-    
-        if not(pointnumber_flag):
-            a = 1               
-        # Less than 3 timepoints/curve or non-unique  
-        else:
-            st.warning('\n Interferenzy analysis not performed. Number of timepoints < 3.\n')
-
+           
         # Fit MM curve
         def MM(x, param0, param1):
             K = param0
