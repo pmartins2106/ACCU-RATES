@@ -82,7 +82,7 @@ def page_analyse():
         return df_load, S0, Ncurves, colist, flag_return, template
     
     
-    input = st.file_uploader('')
+    input = st.file_uploader(' ')
  
     # The run_example variable is session state and is set to False by default
     # Therefore, loading an example is possible anytime after running an example.  
