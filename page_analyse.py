@@ -27,15 +27,11 @@ def page_analyse():
                 return st.sidebar.beta_expander(expander_name)
     
     # Select type of progress curves
-    with make_expanders("**Type of progress curves:**"):
+    with make_expanders("**Calibration Curve:**"):
         # st.markdown("**type of progress curves:**")
-        analysis_mode = st.radio("Options", ('in concentration units',
-                                             'raw data - known calibration curve',
-                                             'raw data - unknown background/calibration curve'))
-        if analysis_mode == 'in concentration units':
-            slope = 1
-            intercept = 0
-        elif analysis_mode == 'raw data - known calibration curve':
+        analysis_mode = st.radio("Options", ('known background signal',
+                                             'variable background signal'))
+        if analysis_mode == 'known background signal':
             slope = st.number_input("Slope [signal/concentration]", format="%2.2f", value = 1.)
             intercept = st.number_input("Background [signal]", format="%2.2f", value = 0.)
         else:
@@ -232,7 +228,7 @@ def page_analyse():
                 Si = parameters[2]
                 S0_int.extend([Si])
                 
-                if analysis_mode != 'raw data - unknown background/calibration curve':    
+                if analysis_mode != 'variable background signal':    
                     ig = np.asarray([max(S0)/10000, max(np.diff(dP)/np.diff(dt))])
                     bds =  ([0, ig[1]], [np.inf, np.inf])
                     

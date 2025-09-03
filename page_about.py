@@ -64,7 +64,7 @@ def page_about():
     # st.image("images//logos.png", use_container_width=True)
     
     st.markdown('''
-                This work is funded by the Portuguese Foundation for Science and Technology (FCT) in the framework of project PTDC/QUICOL/2444/2021.
+                This work is funded by the Portuguese Foundation for Science and Technology (FCT) in the framework of project PTDC/QUICOL/2444/2021, FCT 2023.11892.PEX, and COMPETE2030-FEDER-00690800.
     ''')
     
 # page_about()
