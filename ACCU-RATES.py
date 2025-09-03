@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-Created on Mon Feb 13 06:37:35 2023
-@author: pmartins 
 
+@author: pmartins 
+ 
 """
 # Neededed for google analytics
 from bs4 import BeautifulSoup
