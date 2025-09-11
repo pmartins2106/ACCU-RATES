@@ -219,7 +219,7 @@ def page_analyse():
                 dt = t-list(t)[0]
                 dP = P -list(P)[0]
                 
-                ig = np.asarray([max(S0)/10, max(np.diff(dP)/np.diff(dt)), S0[n]])
+                ig = np.asarray([max(np.diff(dP)/np.diff(dt)), max(S0)/10, S0[n]])
                 bds =  ([0, ig[1], min(dP)], [np.inf, np.inf, np.inf])
                 parameters, covariance = curve_fit(substrate_ode2, dt, dP, 
                                   p0=ig, bounds=bds, maxfev=10000) #xtol=1e-20*tmax, ftol=1e-20*ymax, 
@@ -227,7 +227,7 @@ def page_analyse():
                 S0_int.extend([Si])
                 
                 if analysis_mode != 'variable background signal':    
-                    ig = np.asarray([max(S0)/10000, max(np.diff(dP)/np.diff(dt))])
+                    ig = np.asarray([max(np.diff(dP)/np.diff(dt)), max(S0)/10000])
                     bds =  ([0, ig[1]], [np.inf, np.inf])
                     
                     if Si > 0.9 * (S0[n] - list(P)[0]): # no enzyme inactivation
