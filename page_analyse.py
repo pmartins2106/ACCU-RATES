@@ -36,6 +36,8 @@ def page_analyse():
             slope = st.number_input("Slope [signal/concentration]", format="%2.2f", value = 1.)
             intercept = 0
 
+    
+    st.markdown("<h1 style='text-align: center; color: grey;'>🧐 ACCU-RATES </h1>", unsafe_allow_html=True)
     st.markdown("<h2 style='text-align: center;'> Enzyme Kinetic Analysis </h2>", 
                 unsafe_allow_html=True)
         
@@ -219,24 +221,25 @@ def page_analyse():
                 dt = t-list(t)[0]
                 dP = P -list(P)[0]
                 
-                ig = np.asarray([max(np.diff(dP)/np.diff(dt)), max(S0)/10, S0[n]])
+                ig = np.asarray([max(np.diff(dP)/np.diff(dt)), max(S0)/10, max(S0)])
                 bds =  ([0, ig[1], min(dP)], [np.inf, np.inf, np.inf])
                 parameters, covariance = curve_fit(substrate_ode2, dt, dP, 
                                   p0=ig, bounds=bds, maxfev=10000) #xtol=1e-20*tmax, ftol=1e-20*ymax, 
                 Si = parameters[2]
-                S0_int.extend([Si])
+                S0_int.extend([S0[n]])
                 
                 if analysis_mode != 'variable background signal':    
-                    ig = np.asarray([max(np.diff(dP)/np.diff(dt)), max(S0)/10000])
+                    ig = np.asarray([max(S0)/10000, max(np.diff(dP)/np.diff(dt))])
                     bds =  ([0, ig[1]], [np.inf, np.inf])
                     
                     if Si > 0.9 * (S0[n] - list(P)[0]): # no enzyme inactivation
                         Si = S0[n] - list(P)[0]
                         S0_int[n] = S0[n]
+                    else:
+                        S0_int[n] = Si
                         
                     parameters, covariance = curve_fit(substrate_ode, dt, dP, 
                                       p0=ig, bounds=bds, maxfev=10000) #xtol=1e-20*tmax, ftol=1e-20*ymax, 
-                    
                 Km_int.extend([parameters[1]])
                 Vmax_int.extend([parameters[0]]) 
                 
@@ -255,12 +258,15 @@ def page_analyse():
                 st.stop()
        
         plt.subplot(1, 2, 1)
-        plt.legend(title="S0")
+        plt.legend(loc='lower center', title="S0 [concentration units]", 
+                   bbox_to_anchor=(0.5, 1.05), ncol=2)
         plt.title("Progress Curves")
         plt.xlabel('Time')
         plt.ylabel('Product Concentration')
         plt.subplot(1, 2, 2)
-        plt.legend(title="S0")
+        plt.legend(title="S0 [concentration units]")
+        plt.legend(loc='lower center', title="S0 [concentration units]", bbox_to_anchor=(0.5, 1.05),
+              ncol=2)
         plt.title("Normalized Units")
         plt.xlabel('Time')
         
@@ -281,7 +287,9 @@ def page_analyse():
         for n in range(Ncurves):
             v0.extend([S0_int[n]*Vmax_int[n] / (S0_int[n] + Km_int[n])])
         v0_df = pd.DataFrame({'S0': S0,
-                   'v0': v0})
+                   'v0': v0, 'A': Km_int, 
+                   'B': Vmax_int, 
+                   'A/B (time constant)': np.array(Km_int)/np.array(Vmax_int)})
             
    
         ig = np.asarray([max(S0)/5, max(v0)])
@@ -298,11 +306,11 @@ def page_analyse():
             plt.style.use("dark_background")
         else:
             plt.style.use("default")
-        plt.scatter(S0, v0, facecolors='none', edgecolors='r', s = 70, label='ACCU-RATES')
+        plt.scatter(S0, v0, facecolors='r', edgecolors='r', s = 70, label='ACCU-RATES')
         p_xfit = np.linspace(0, max(S0))
         plt.plot(p_xfit, Vmax*p_xfit / (Km + p_xfit), 'b', label='fitted line')
-        plt.xlabel('S0')
-        plt.ylabel('v0')
+        plt.xlabel('S0 [concentration units]')
+        plt.ylabel('v0 [rate units]')
         plt.legend(loc="upper left")
         st.pyplot(fig2)
                   
@@ -391,10 +399,10 @@ def page_analyse():
             return format_string.format(mean_rounded, sd_rounded)    
         
         
-        st.info('\n\nInitial Rates:\n')
+        st.info('\n\nInitial Rates and Heuristic Model Constants (A and B):\n')
         st.dataframe(v0_df, hide_index=True)
         st.info('Michaelis-Menten Parameters:')
-        st.write(f"\nKm ± SD: {format_mean_sd(Km, sigma_ab[0])}")
-        st.write(f"\nV ± SD: {format_mean_sd(Vmax, sigma_ab[1])}")
+        st.write(f"\nKm ± SD: {format_mean_sd(Km, sigma_ab[0])} [concentration units]")
+        st.write(f"\nV ± SD: {format_mean_sd(Vmax, sigma_ab[1])} [rate units]")
         
         

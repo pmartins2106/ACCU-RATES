@@ -39,7 +39,7 @@ def main_nag():
     """
     pages = {
         "ANALYSE": page_analyse,
-        "ABOUT": page_about,
+        "GUIDELINES": page_about,
     }
 
     st.sidebar.title("Main options")

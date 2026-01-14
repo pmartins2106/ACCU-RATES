@@ -1,0 +1,15 @@
+# License for ACCU-RATES
+
+## Non-Commercial License
+ACCU-RATES is licensed for non-commercial use only under the Creative Commons Attribution-NonCommercial 4.0 International License (CC BY-NC 4.0).
+
+For full details, see: https://creativecommons.org/licenses/by-nc/4.0/
+
+**Restrictions**: Commercial use, including but not limited to use in a commercial product, service, or business operation, is prohibited without a separate commercial license.
+
+## Commercial License
+For commercial use, including downloading and running the Source Code for commercial purposes, a commercial license is available through a Software-as-a-Service (SaaS) subscription. Contact pmartins2106@gmail.com for details on obtaining a commercial license.
+
+## Notes
+- Users downloading the Source Code from this repository for non-commercial use must comply with the CC BY-NC 4.0 License and all third-party licenses.
+- For commercial use, including local deployment for commercial purposes, a commercial license is required via the SaaS subscription.
