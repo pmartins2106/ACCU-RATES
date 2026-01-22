@@ -34,7 +34,7 @@ def page_about():
    
     st.markdown("""
     ACCU-RATES calculates enzyme kinetic parameters ($K_m$ and $V$) with high precision, 
-    eliminating the need for subjective 'linear phase' selection.
+    eliminating the need for subjective 'linear phase' selection (Pinto et al. JMB 2006, https://doi.org/10.1016/j.jmb.2026.169654).
     """)
 
     st.divider()
